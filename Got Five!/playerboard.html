@@ -27,8 +27,13 @@
     .dots { display: flex; justify-content: center; gap: 3px; height: 7px; }
     .dot { width: 6px; height: 6px; border-radius: 50%; border: 1px solid #69344a; background: #fff4c5; }
     .green { --c: #27a864; } .pink { --c: #dd5f9d; } .blue { --c: #359bc5; } .red { --c: #e64c31; } .orange { --c: #f08d20; }
+    .top-slots-container { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 auto 20px; background: #fffdf0; border: 3px solid #8c4b2c; border-radius: 16px; padding: 10px 20px; width: fit-content; }
+    .top-slots-container span { font-weight: 900; font-size: 1.05rem; color: var(--ink); }
+    .top-slots { display: flex; gap: 8px; }
+    .top-slot { width: 44px; height: 44px; border: 3px solid #a56282; border-radius: 50%; background: #fff8df; color: var(--ink); font: 900 1.25rem "Trebuchet MS", sans-serif; text-align: center; outline: none; transition: border-color 0.15s, transform 0.15s, background-color 0.15s; }
+    .top-slot:focus { border-color: #9b2864; background: #f2b8d3; transform: scale(1.08); }
     .note { margin: 16px 7px 0; text-align: center; font-size: .82rem; font-weight: 700; opacity: .7; }
-    @media (max-width: 680px) { .board { border-width: 5px; padding: 16px 10px; } .row { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; } .label { grid-column: 1 / -1; min-height: 27px; } .tile { min-height: 54px; border-width: 2px; border-radius: 9px; } .dot { width: 5px; height: 5px; } }
+    @media (max-width: 680px) { .board { border-width: 5px; padding: 16px 10px; } .row { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; } .label { grid-column: 1 / -1; min-height: 27px; } .tile { min-height: 54px; border-width: 2px; border-radius: 9px; } .dot { width: 5px; height: 5px; } .top-slots-container { padding: 8px 12px; gap: 8px; margin-bottom: 15px; } .top-slots-container span { font-size: 0.9rem; } .top-slot { width: 36px; height: 36px; font-size: 1.05rem; border-width: 2px; } }
   </style>
 </head>
 <body>
@@ -44,6 +49,16 @@
         <button class="fullscreen-btn" id="fullscreen" aria-label="Enter fullscreen mode">⛶ Fullscreen</button>
       </div>
     </header>
+    <div class="top-slots-container">
+      <span>My Numbers:</span>
+      <div class="top-slots">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="top-slot" placeholder="" aria-label="Target number 1">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="top-slot" placeholder="" aria-label="Target number 2">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="top-slot" placeholder="" aria-label="Target number 3">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="top-slot" placeholder="" aria-label="Target number 4">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="top-slot" placeholder="" aria-label="Target number 5">
+      </div>
+    </div>
     <section class="rows" id="rows" aria-label="Numbers one through sixty"></section>
     <p class="note">The dots repeat by column: 1 dot, 2 dots, 3 dots — then back to 1.</p>
   </main>
@@ -74,11 +89,31 @@
       selected = button.dataset.mark;
       document.querySelectorAll('[data-mark]').forEach(item => item.classList.toggle('active', item === button));
     }));
-    document.querySelector('#clear').addEventListener('click', () => document.querySelectorAll('.tile[data-mark]').forEach(tile => {
-      delete tile.dataset.mark; const mark = tile.querySelector('.marker'); mark.className = 'marker'; mark.textContent = '';
-    }));
+    document.querySelector('#clear').addEventListener('click', () => {
+      document.querySelectorAll('.tile[data-mark]').forEach(tile => {
+        delete tile.dataset.mark; const mark = tile.querySelector('.marker'); mark.className = 'marker'; mark.textContent = '';
+      });
+      document.querySelectorAll('.top-slot').forEach(slot => {
+        slot.value = '';
+      });
+    });
 
     const fullscreenBtn = document.querySelector('#fullscreen');
+    
+    function lockLandscape() {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(err => {
+          console.warn('Orientation lock failed:', err);
+        });
+      }
+    }
+
+    function unlockOrientation() {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    }
+
     function toggleFullscreen() {
       const docEl = document.documentElement;
       const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
@@ -107,10 +142,12 @@
         fullscreenBtn.innerHTML = 'Collapse';
         fullscreenBtn.setAttribute('aria-label', 'Exit fullscreen mode');
         document.body.classList.add('fullscreen-active');
+        lockLandscape();
       } else {
         fullscreenBtn.innerHTML = '⛶ Fullscreen';
         fullscreenBtn.setAttribute('aria-label', 'Enter fullscreen mode');
         document.body.classList.remove('fullscreen-active');
+        unlockOrientation();
       }
     }
 
@@ -128,9 +165,11 @@
           if (isSimulated) {
             fullscreenBtn.innerHTML = 'Collapse';
             fullscreenBtn.setAttribute('aria-label', 'Exit simulated fullscreen mode');
+            lockLandscape();
           } else {
             fullscreenBtn.innerHTML = '⛶ Fullscreen';
             fullscreenBtn.setAttribute('aria-label', 'Enter simulated fullscreen mode');
+            unlockOrientation();
           }
         });
       }
