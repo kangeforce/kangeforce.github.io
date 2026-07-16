@@ -14,7 +14,9 @@
     .tools { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: .88rem; }
     .tools button { width: 34px; height: 34px; cursor: pointer; color: var(--ink); background: #fffdf4; border: 2px solid #a56282; border-radius: 50%; font: 900 1.05rem system-ui; transition: transform .15s, background .15s; }
     .tools button:hover, .tools button.active { transform: translateY(-2px); background: #f2b8d3; border-color: #9b2864; }
-    .tools .clear { width: auto; padding: 0 10px; border-radius: 18px; font-size: .76rem; }
+    .tools .clear, .tools .fullscreen-btn { width: auto; padding: 0 10px; border-radius: 18px; font-size: .76rem; }
+    body.simulated-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; overflow: auto; padding: 10px; }
+    body.simulated-fullscreen .board { width: 100%; height: 100%; overflow-y: auto; border-radius: 12px; }
     .rows { display: grid; gap: 9px; }
     .row { display: grid; grid-template-columns: 58px repeat(12, minmax(0, 1fr)); gap: 6px; }
     .label { display: grid; place-items: center; border-radius: 10px; font-weight: 900; color: #fffdf0; text-shadow: 0 2px #0005; }
@@ -39,6 +41,7 @@
         <button data-mark="star" aria-label="Star marker">★</button>
         <button data-mark="check" aria-label="Check marker">✓</button>
         <button class="clear" id="clear">Clear all</button>
+        <button class="fullscreen-btn" id="fullscreen" aria-label="Enter fullscreen mode">⛶ Fullscreen</button>
       </div>
     </header>
     <section class="rows" id="rows" aria-label="Numbers one through sixty"></section>
@@ -74,6 +77,64 @@
     document.querySelector('#clear').addEventListener('click', () => document.querySelectorAll('.tile[data-mark]').forEach(tile => {
       delete tile.dataset.mark; const mark = tile.querySelector('.marker'); mark.className = 'marker'; mark.textContent = '';
     }));
+
+    const fullscreenBtn = document.querySelector('#fullscreen');
+    function toggleFullscreen() {
+      const docEl = document.documentElement;
+      const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      if (!isFullscreen) {
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) {
+          docEl.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    }
+
+    function updateFullscreenUI() {
+      const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      if (isFullscreen) {
+        fullscreenBtn.innerHTML = 'Collapse';
+        fullscreenBtn.setAttribute('aria-label', 'Exit fullscreen mode');
+        document.body.classList.add('fullscreen-active');
+      } else {
+        fullscreenBtn.innerHTML = '⛶ Fullscreen';
+        fullscreenBtn.setAttribute('aria-label', 'Enter fullscreen mode');
+        document.body.classList.remove('fullscreen-active');
+      }
+    }
+
+    if (fullscreenBtn) {
+      const isFullscreenSupported = document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled;
+      if (isFullscreenSupported) {
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+          document.addEventListener(evt, updateFullscreenUI);
+        });
+      } else {
+        fullscreenBtn.addEventListener('click', () => {
+          document.body.classList.toggle('simulated-fullscreen');
+          const isSimulated = document.body.classList.contains('simulated-fullscreen');
+          if (isSimulated) {
+            fullscreenBtn.innerHTML = 'Collapse';
+            fullscreenBtn.setAttribute('aria-label', 'Exit simulated fullscreen mode');
+          } else {
+            fullscreenBtn.innerHTML = '⛶ Fullscreen';
+            fullscreenBtn.setAttribute('aria-label', 'Enter simulated fullscreen mode');
+          }
+        });
+      }
+    }
   </script>
 </body>
 </html>
