@@ -6,6 +6,8 @@
 <title>ประมวลกฎหมายอาญา</title>
 <style>
 html{scroll-behavior:smooth}
+#numToggle{position:fixed;top:1rem;right:1rem;z-index:99;padding:.5rem 1rem;border:1px solid #0563C1;background:#0563C1;color:#fff;border-radius:6px;cursor:pointer;font-size:1rem}
+#numToggle:hover{background:#04488f}
 body{font-family:Tahoma,'Leelawadee UI',sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.8;color:#222}
 sup a{text-decoration:none;color:#0563C1}
 hr{border:0;border-top:1px solid #ccc;margin:2rem 0}
@@ -1597,5 +1599,33 @@ h1,h2,h3{line-height:1.4}
 <p><a id="_fn365"></a>๓๑ ราชกิจจานุเบกษา เล่ม ๑๓๘/ตอนที่ ๑๐ ก/หน้า ๑/๖ กุมภาพันธ์ ๒๕๖๔</p>
 <p><a id="_fn366"></a>๓๒ ราชกิจจานุเบกษา เล่ม ๑๓๙/ตอนที่ ๒๘ ก/หน้า ๑/๗ พฤษภาคม ๒๕๖๕</p>
 <p><a id="_fn367"></a>๓๓ ราชกิจจานุเบกษา เล่ม ๑๔๒/ตอนที่ ๙๐ ก/หน้า ๗/๒๙ ธันวาคม ๒๕๖๘</p>
+<script>
+(function(){
+  var TH='๐๑๒๓๔๕๖๗๘๙', AR='0123456789', toThai=false;
+  function conv(str){
+    var from=toThai?AR:TH, to=toThai?TH:AR, out='';
+    for(var i=0;i<str.length;i++){
+      var k=from.indexOf(str[i]);
+      out += k>=0 ? to[k] : str[i];
+    }
+    return out;
+  }
+  function walk(node){
+    if(node.nodeType===3){ node.nodeValue=conv(node.nodeValue); return; }
+    for(var i=0;i<node.childNodes.length;i++){
+      if(node.childNodes[i].nodeType===1 && node.childNodes[i].nodeName!=='SCRIPT') walk(node.childNodes[i]);
+      else if(node.childNodes[i].nodeType===3) walk(node.childNodes[i]);
+    }
+  }
+  var btn=document.createElement('button');
+  btn.id='numToggle'; btn.textContent='เปลี่ยนเป็นเลขอารบิก';
+  btn.onclick=function(){
+    toThai=!toThai;
+    walk(document.body);
+    btn.textContent = toThai ? 'เปลี่ยนเป็นเลขไทย' : 'เปลี่ยนเป็นเลขอารบิก';
+  };
+  document.body.appendChild(btn);
+})();
+</script>
 </body>
 </html>
