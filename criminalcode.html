@@ -1603,7 +1603,7 @@ h1,h2,h3{line-height:1.4}
 (function(){
   var TH='๐๑๒๓๔๕๖๗๘๙', AR='0123456789', arabic=false; // current state: Thai first
   function conv(str){
-    var from=arabic?AR:TH, to=arabic?TH:AR, out='';
+    var from=arabic?TH:AR, to=arabic?AR:TH, out='';
     for(var i=0;i<str.length;i++){
       var k=from.indexOf(str[i]);
       out += k>=0 ? to[k] : str[i];
