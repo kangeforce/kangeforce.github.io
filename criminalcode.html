@@ -1601,9 +1601,9 @@ h1,h2,h3{line-height:1.4}
 <p><a id="_fn367"></a>๓๓ ราชกิจจานุเบกษา เล่ม ๑๔๒/ตอนที่ ๙๐ ก/หน้า ๗/๒๙ ธันวาคม ๒๕๖๘</p>
 <script>
 (function(){
-  var TH='๐๑๒๓๔๕๖๗๘๙', AR='0123456789', toThai=false;
+  var TH='๐๑๒๓๔๕๖๗๘๙', AR='0123456789', arabic=false; // current state: Thai first
   function conv(str){
-    var from=toThai?AR:TH, to=toThai?TH:AR, out='';
+    var from=arabic?AR:TH, to=arabic?TH:AR, out='';
     for(var i=0;i<str.length;i++){
       var k=from.indexOf(str[i]);
       out += k>=0 ? to[k] : str[i];
@@ -1620,9 +1620,9 @@ h1,h2,h3{line-height:1.4}
   var btn=document.createElement('button');
   btn.id='numToggle'; btn.textContent='เปลี่ยนเป็นเลขอารบิก';
   btn.onclick=function(){
-    toThai=!toThai;
+    arabic=!arabic;
     walk(document.body);
-    btn.textContent = toThai ? 'เปลี่ยนเป็นเลขไทย' : 'เปลี่ยนเป็นเลขอารบิก';
+    btn.textContent = arabic ? 'เปลี่ยนเป็นเลขไทย' : 'เปลี่ยนเป็นเลขอารบิก';
   };
   document.body.appendChild(btn);
 })();
