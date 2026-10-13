@@ -28,7 +28,7 @@
       radial-gradient(900px 500px at 110% 10%, #6c225a44, transparent 55%),
       var(--bg);
     color: var(--txt);
-    font-family: "Sarabun", "Noto Sans Thai", "Segoe UI", system-ui, sans-serif;
+    font-family: "Cordia New", "Cordia", "Noto Sans Thai", "Segoe UI", system-ui, sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -136,7 +136,7 @@
     display: flex; flex-direction: column; justify-content: center;
     box-shadow: 0 24px 60px -30px #000;
     overflow: hidden;
-    font-family: "Angsana New", "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
+    font-family: "Cordia New", "Cordia", "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
     font-size: var(--card-fs, 21px);
   }
   .face.back { transform: rotateY(180deg); }
@@ -202,6 +202,20 @@
     background: #0b0e1c;
   }
   .qimgerr { margin: -6px 0 12px; font-size: .85em; color: var(--warn); text-align: center; }
+  .qimg, .explain img { cursor: zoom-in; }
+
+  /* คลิกภาพเพื่อขยายเต็มจอ (คลิกอีกครั้งหรือกด Esc เพื่อปิด) */
+  .zoom {
+    position: fixed; inset: 0; z-index: 60; padding: 20px;
+    display: grid; place-items: center; cursor: zoom-out;
+    background: #05060ff2;
+  }
+  .zoom[hidden] { display: none; }
+  .zoom img {
+    max-width: min(1100px, 94vw); max-height: 90vh; border-radius: 14px;
+    border: 1px solid var(--line); background: #0b0e1c;
+    box-shadow: 0 30px 80px -30px #000;
+  }
   .verdict { margin-top: 14px; font-weight: 700; font-size: 1em; }
   .verdict.good { color: var(--ok); }
   .verdict.bad { color: var(--bad); }
@@ -254,6 +268,7 @@
   <button id="reshuffle">🔀 สุ่มใหม่</button>
   <div class="seg" role="group" aria-label="โหมดฝึก">
     <button id="modeRandom" class="on">🎲 สุ่มปกติ</button>
+    <button id="modeOrder" title="ทำข้อตามลำดับของชุดที่เลือกไว้ ตั้งแต่ข้อแรกถึงข้อสุดท้าย ไม่สุ่ม">📋 เรียงข้อ</button>
     <button id="modeSrs">🔁 ฝึกซ้ำ (SRS)</button>
   </div>
   <div class="seg" role="group" aria-label="ขนาดตัวอักษร">
@@ -330,9 +345,11 @@
 
 <footer>
   คลิกตัวเลือกเพื่อตอบ ระบบจะเฉลยให้ทันที<br/>
-  คีย์ลัด: <kbd>Space</kbd> พลิกการ์ด · <kbd>1–4</kbd> เลือกคำตอบ · <kbd>←</kbd>/<kbd>→</kbd> เลื่อนข้อ<br/>
+  คีย์ลัด: <kbd>Space</kbd> พลิกการ์ด · <kbd>1–4</kbd> เลือกคำตอบ · <kbd>←</kbd>/<kbd>→</kbd> เลื่อนข้อ · <kbd>Esc</kbd> ปิดภาพขยาย<br/>
   ข้อมูลโจทย์ถูกฝังไว้ในไฟล์นี้ตอนรัน <code>node build.js</code> — แก้โจทย์ที่ <code>sets/</code> แล้ว build ใหม่
 </footer>
+
+<div id="zoom" class="zoom" hidden><img id="zoomImg" alt="ภาพขยาย" /></div>
 
 <script>
 /* ============================================================
@@ -404,6 +421,7 @@ function reviewCount() {
 
 function buildQueue() {
   const ids = state.items.map((_, i) => i);
+  if (state.mode === "order") return ids;      // เรียงข้อ — ตามลำดับในไฟล์ CSV
   if (state.mode !== "srs") return shuffle(ids);
   return ids
     .map(i => ({ i, b: boxOf(state.items[i]), r: Math.random() }))
@@ -540,9 +558,14 @@ function choiceHTML(item, p, mode) {
   }
   const dis = mode === "front" && state.picked >= 0 ? "disabled" : "";
   return `<button class="${cls}" data-i="${p}" ${dis}>
-      <span class="key">${key}</span><span>${escapeHTML(item.choices[i])}</span>
+      <span class="key">${key}</span><span>${escapeHTML(stripHeading(item.choices[i]))}</span>
     </button>`;
 }
+
+// ตัดหัวข้อนำหน้าที่พิมติดมาด้วย เช่น "a. test" / "1) test" / "(1) test" → "test"
+// ทำเฉพาะตอนแสดงผล — ข้อมูลในไฟล์ CSV ไม่ถูกแก้ (ใช้ตอนเทียบเฉลย/สถิติ SRS คงเดิม)
+const stripHeading = s => String(s).replace(
+  /^\s*(?:\(\s*(?:[A-Za-z]|[0-9]{1,2})\s*\)|(?:[A-Za-z]|[0-9]{1,2})\s*[.)])\s+(?=\S)/, "");
 
 const escapeHTML = s => s.replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -555,16 +578,17 @@ function render() {
 
   $("fNum").textContent = `ข้อ ${n} จาก ${state.order.length}${setLine}`;
   $("bNum").textContent = `ข้อ ${n} จาก ${state.order.length}${setLine}`;
-  $("fQ").textContent = item.question;
-  $("bQ").textContent = item.question;
+  $("fQ").textContent = stripHeading(item.question);
+  $("bQ").textContent = stripHeading(item.question);
   $("fTag").textContent = state.mode === "srs"
     ? `🔁 SRS · กล่อง ${boxOf(item)}/${MAX_BOX}`
+    : state.mode === "order" ? `📋 เรียงตามลำดับชุด · ข้อที่ ${n}`
     : `สุ่มข้อที่ ${n}`;
 
   $("fChoices").innerHTML = item.choices.map((_, p) => choiceHTML(item, p, "front")).join("");
   $("bChoices").innerHTML = item.choices.map((_, p) => choiceHTML(item, p, "back")).join("");
   $("bAnswer").textContent =
-    `ข้อ ${"ABCD"[orderOf(item).indexOf(item.answer)]} — ${item.choices[item.answer]}`;
+    `ข้อ ${"ABCD"[orderOf(item).indexOf(item.answer)]} — ${stripHeading(item.choices[item.answer])}`;
 
   const v = $("bVerdict");
   if (state.picked >= 0) {
@@ -578,11 +602,10 @@ function render() {
     v.style.color = "var(--muted)";
   }
 
-  cardEl.classList.toggle("flipped", state.revealed);
+  setFlipped(state.revealed);      // ความสูงการ์ดสลับตอนการ์ดหันข้าง ไม่ยืดหน้าโจทย์ตามหน้าเฉลย
 
   renderExplain(item);
   renderQuestionImg(item);
-  syncCardHeight();
 
   const pct = (state.answered / state.order.length) * 100;
   $("barFill").style.width = pct + "%";
@@ -670,19 +693,45 @@ function renderQuestionImg(item) {
   }
 }
 
+// ความสูงการ์ด = ด้านที่กำลังเห็นอยู่ — หน้าโจทย์จึงกระชับเท่าเนื้อหาตัวเอง
+// (เดิมบังคับให้สองด้านเท่ากัน หน้าเฉลยที่มีเฉลยละเอียดยาวเลยดึงหน้าโจทย์ให้สูงโล่ง)
 function syncCardHeight() {
-  const faces = cardEl.querySelectorAll(".face");
+  const faces = [...cardEl.querySelectorAll(".face")];     // [หน้าโจทย์, หน้าเฉลย]
   faces.forEach(f => { f.style.height = "auto"; });
-  let h = 380;
-  faces.forEach(f => { h = Math.max(h, f.offsetHeight); });
-  faces.forEach(f => { f.style.height = h + "px"; });
+  const vis = faces[state.revealed ? 1 : 0];
+  const h = Math.max(380, vis.offsetHeight);
+  vis.style.height = h + "px";
   cardEl.style.height = h + "px";
+}
+
+let flipWatch = 0, flipGuard = 0;
+// สลับความสูงกลางทางพลิก — รอจนการ์ดหันข้างจริง (cos มุม Y ≈ 0 มองไม่เห็นหน้าไหน) จึงปรับ ไม่กระตุก
+function syncHeightWhileFlipping() {
+  cancelAnimationFrame(flipWatch);
+  clearTimeout(flipGuard);
+  const start = new DOMMatrixReadOnly(getComputedStyle(cardEl).transform).m11;  // cos มุม Y ตอนเริ่มพลิก
+  const sign = start === 0 ? 1 : Math.sign(start);
+  const step = () => {
+    const m11 = new DOMMatrixReadOnly(getComputedStyle(cardEl).transform).m11;  // = cos มุม Y
+    if (Math.sign(m11) === -sign || Math.abs(m11) < 0.06) { syncCardHeight(); return; }   // ผ่านมุม 90° แล้ว (มุมเร็วอาจข้ามช่วง cos เล็ก ๆ ไปหนึ่งเฟรม)
+    flipWatch = requestAnimationFrame(step);
+  };
+  flipWatch = requestAnimationFrame(step);
+  flipGuard = setTimeout(() => { cancelAnimationFrame(flipWatch); syncCardHeight(); }, 900);  // กันค้างถ้ามุมไม่เข้าเกณฑ์
+}
+
+function setFlipped(on) {
+  const was = cardEl.classList.contains("flipped");
+  state.revealed = !!on;
+  if (was === state.revealed) { syncCardHeight(); return; }
+  syncHeightWhileFlipping();      // อ่านมุมเริ่มต้น “ก่อน” สลับคลาส — กันค่า transform กระโดดไปค่าท้ายก่อนแอนิเมชันเริ่ม แล้วข้ามจุดเปลี่ยนเครื่องหมายไปเลย
+  cardEl.classList.toggle("flipped", state.revealed);
 }
 
 window.addEventListener("resize", () => requestAnimationFrame(syncCardHeight));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncCardHeight);
 
-function reveal() { state.revealed = true; cardEl.classList.add("flipped"); }
+function reveal() { setFlipped(true); }
 
 function pick(p) {
   if (state.picked >= 0) return;
@@ -732,15 +781,13 @@ $("fChoices").addEventListener("click", e => {
 });
 $("bChoices").addEventListener("click", e => e.stopPropagation());
 
-$("flip").addEventListener("click", () => {
-  state.revealed = !state.revealed;
-  cardEl.classList.toggle("flipped", state.revealed);
-});
+$("flip").addEventListener("click", () => setFlipped(!state.revealed));
 cardEl.addEventListener("click", e => {
+  const img = e.target.closest("img");
+  if (img && img.getAttribute("src")) { openZoom(img.getAttribute("src")); return; }
   if (e.target.closest(".choice")) return;
   if (!state.revealed) return;        // ฝั่งโจทย์: คลิกไม่พลิก — ดูเฉลยด้วยปุ่ม 👁 เฉลย หรือ Space เท่านั้น
-  state.revealed = !state.revealed;
-  cardEl.classList.toggle("flipped", state.revealed);
+  setFlipped(!state.revealed);
 });
 $("next").addEventListener("click", () => go(1));
 $("prev").addEventListener("click", () => go(-1));
@@ -751,13 +798,16 @@ function restart() {
   render();
   setStatus(state.mode === "srs"
     ? `จัดคิวซ้ำใหม่ — เริ่มจาก ${reviewCount()} ข้อที่ต้องทบทวน`
-    : `สุ่มโจทย์ใหม่แล้ว — ${state.items.length} ข้อ`, "ok");
+    : state.mode === "order"
+      ? `กลับไปข้อ 1 — เรียงตามลำดับ ${state.items.length} ข้อ`
+      : `สุ่มโจทย์ใหม่แล้ว — ${state.items.length} ข้อ`, "ok");
 }
 $("restart").addEventListener("click", restart);
 
 function setMode(m) {
   state.mode = m;
   $("modeRandom").classList.toggle("on", m === "random");
+  $("modeOrder").classList.toggle("on", m === "order");
   $("modeSrs").classList.toggle("on", m === "srs");
   $("srsHint").style.display = m === "srs" ? "" : "none";
   if (state.items.length) {
@@ -765,12 +815,17 @@ function setMode(m) {
     render();
     setStatus(m === "srs"
       ? `โหมดฝึกซ้ำ (SRS) — ${state.items.length} ข้อ · เริ่มจาก ${reviewCount()} ข้อที่ต้องทบทวน`
-      : `สลับเป็นโหมดสุ่มปกติ — ${state.items.length} ข้อ`, "ok");
+      : m === "order"
+        ? `โหมดเรียงข้อ — ทำตามลำดับชุดที่เลือก รวม ${state.items.length} ข้อ`
+        : `สลับเป็นโหมดสุ่มปกติ — ${state.items.length} ข้อ`, "ok");
   } else if (m === "srs") {
     setStatus("โหมดฝึกซ้ำ (SRS) — เลือกชุดโจทย์ก่อนเริ่มฝึก", "");
+  } else if (m === "order") {
+    setStatus("โหมดเรียงข้อ — เลือกชุดโจทย์ก่อนเริ่มฝึก", "");
   }
 }
 $("modeRandom").addEventListener("click", () => setMode("random"));
+$("modeOrder").addEventListener("click", () => setMode("order"));
 $("modeSrs").addEventListener("click", () => setMode("srs"));
 
 $("toggleShuffle").addEventListener("click", () => {
@@ -806,6 +861,21 @@ $("selectNone").addEventListener("click", () => {
   document.querySelectorAll("#setList .setrow").forEach(r => r.classList.add("off"));
   updatePool();
 });
+
+/* ---- คลิกภาพเพื่อขยายเต็มจอ ---- */
+const zoomEl = $("zoom"), zoomImg = $("zoomImg");
+function openZoom(src) {
+  if (!src) return;
+  zoomImg.src = src;
+  zoomEl.hidden = false;
+}
+function closeZoom() {
+  if (zoomEl.hidden) return;
+  zoomEl.hidden = true;
+  zoomImg.removeAttribute("src");
+}
+zoomEl.addEventListener("click", closeZoom);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeZoom(); });
 
 document.addEventListener("keydown", e => {
   if (!state.items.length || $("stage").style.display === "none") return;
